@@ -2,46 +2,67 @@ from app.qdrant.vector_store import vector_store
 from app.llm_service import generate_answer
 
 
-def answer_question(question: str) -> str:
+def answer_question(question: str) -> dict:
 
-    # 1. Retrieve relevant chunks
     results = vector_store.similarity_search(
         question,
         k=3
     )
 
-    # 2. Combine retrieved chunks into context
-    context = "\n\n".join(
-        result.page_content
-        for result in results
-    )
+    context_parts = []
+    sources = []
 
-    # 3. Build prompt
+    for result in results:
+        page_number = result.metadata.get("page_number")
+
+        context_parts.append(
+            f"[Page {page_number}]\n{result.page_content}"
+        )
+
+        sources.append({
+            "page_number": page_number,
+            "document_id": result.metadata.get("document_id")
+        })
+
+    context = "\n\n".join(context_parts)
+
     prompt = f"""
-You are a document question-answering assistant.
+    You are a document question-answering assistant.
 
-Answer the user's question using only the provided context.
+    Answer the user's question using only the provided context.
 
-If the answer cannot be found in the context, say:
-"I couldn't find the answer in the provided document."
+    If the answer cannot be found in the context, say:
+    "I couldn't find the answer in the provided document."
 
-Context:
-{context}
+    Context:
+    {context}
 
-Question:
-{question}
+    Question:
+    {question}
 
-Answer:
-"""
+    Answer:
+    """
 
-    # 4. Generate answer
-    return generate_answer(prompt)
+    answer = generate_answer(prompt)
+
+    return {
+        "answer": answer,
+        "sources": sources
+    }
 
 
 if __name__ == "__main__":
-    question = "What types of inputs the proposed system handle?"
+    question = "explain system architecture in 5 main points?"
 
-    answer = answer_question(question)
+    result = answer_question(question)
 
     print("\n--- Answer ---")
-    print(answer)
+    print(result["answer"])
+
+    print("\n--- Sources ---")
+
+    for source in result["sources"]:
+        print(
+            f"Page: {source['page_number']}, "
+            f"Document: {source['document_id']}"
+        )
