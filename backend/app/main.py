@@ -1,3 +1,6 @@
+from app.database.database import SessionLocal
+from app.database.models import Document
+from app.database.database import SessionLocal
 from uuid import uuid4
 from pathlib import Path
 from fastapi import HTTPException
@@ -62,3 +65,28 @@ async def upload_document(file: UploadFile = File(...)):
     finally:
         file_path.unlink(missing_ok=True)
         await file.close()
+
+
+@app.get("/api/documents")
+def list_documents():
+    with SessionLocal() as db:
+        documents = (
+            db.query(Document)
+            .filter(Document.user_id == "test-user")
+            .order_by(Document.created_at.desc())
+            .all()
+        )
+
+        return [
+            {
+                "document_id": str(document.id),
+                "filename": document.filename,
+                "status": document.status,
+                "page_count": document.page_count,
+                "chunk_count": document.chunk_count,
+                "created_at": document.created_at.isoformat()
+                if document.created_at
+                else None
+            }
+            for document in documents
+        ]
