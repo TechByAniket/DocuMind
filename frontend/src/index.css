@@ -1,0 +1,141 @@
+/* Tailwind CSS v4 — CSS-first configuration */
+@import "tailwindcss";
+
+/* ── Design tokens ──────────────────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-canvas:       #F7F6F2;
+  --color-white:        #FFFFFF;
+  --color-ink:          #22233A;
+  --color-ink-light:    #3D3F5C;
+  --color-indigo:       #635BFF;
+  --color-indigo-dark:  #4F48D9;
+  --color-indigo-light: #7B75FF;
+  --color-lavender:     #E8E5FC;
+  --color-lavender-mid: #D4CFFA;
+  --color-mint:         #DFF3E7;
+  --color-mint-dark:    #2D7A4F;
+  --color-border:       #E8E9ED;
+  --color-border-dark:  #D0D1D9;
+  --color-muted:        #737384;
+  --color-muted-light:  #9A9AAD;
+  --color-error:        #DC2626;
+  --color-error-bg:     #FEF2F2;
+  --color-error-border: #FECACA;
+  --color-warning:      #D97706;
+  --color-warning-bg:   #FFFBEB;
+  --color-warning-border:#FDE68A;
+
+  /* Typography */
+  --font-sans:    'DM Sans', system-ui, -apple-system, sans-serif;
+
+  /* Border radius */
+  --radius-sm:    6px;
+  --radius-md:    10px;
+  --radius-lg:    14px;
+  --radius-xl:    18px;
+  --radius-full:  9999px;
+
+  /* Shadows */
+  --shadow-card:  0 1px 3px rgba(34, 35, 58, 0.06), 0 1px 2px rgba(34, 35, 58, 0.04);
+  --shadow-float: 0 4px 16px rgba(34, 35, 58, 0.10), 0 1px 4px rgba(34, 35, 58, 0.06);
+  --shadow-sm:    0 1px 2px rgba(34, 35, 58, 0.06);
+}
+
+/* ── Base reset & global styles ─────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-ink);
+  background-color: var(--color-canvas);
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Typography helpers ─────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  line-height: 1.25;
+  margin: 0;
+}
+
+p { margin: 0; }
+
+a {
+  color: var(--color-indigo);
+  text-decoration: none;
+}
+
+/* ── Focus styles (accessible) ──────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-indigo);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Scrollbar (subtle) ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-dark); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted-light); }
+
+/* ── Reduced motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Animations ─────────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.25s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out both;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1.5s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: spin 0.8s linear infinite;
+}

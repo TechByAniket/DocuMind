@@ -1,22 +1,25 @@
+from fastapi import FastAPI, HTTPException, UploadFile, File
+
 from app.database.database import SessionLocal
 from app.database.models import Document
-from app.database.database import SessionLocal
-from uuid import uuid4
-from pathlib import Path
-from fastapi import HTTPException
 from app.document_service import ingest_document
-from fastapi import File
-from fastapi import UploadFile
-import fastapi
-from fastapi import FastAPI
-
 from app.rag_pipeline import answer_question
 from app.schemas import ChatRequest
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="DocuMind")
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# Tell the browser which origins are allowed to call this API.
+# During development, we allow the Vite dev server origin.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_credentials=True,
+    allow_methods=["*"],   # GET, POST, PUT, DELETE, OPTIONS, etc.
+    allow_headers=["*"],   # Authorization, Content-Type, etc.
+)
+
+
 
 @app.get("/")
 def home():
@@ -24,27 +27,43 @@ def home():
 
 
 @app.post("/api/chat")
-def chat(request : ChatRequest):
+def chat(request: ChatRequest):
     return answer_question(request.question)
+
+
+# 10 MB file size limit (10 * 1024 * 1024 bytes)
+MAX_PDF_SIZE = 10 * 1024 * 1024
 
 
 @app.post("/api/documents/upload")
 async def upload_document(file: UploadFile = File(...)):
-    if not file.filename or Path(file.filename).suffix.lower() != ".pdf":
+    # 1. Check if the user selected a file and if it ends with .pdf
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=400,
             detail="Please upload a PDF file."
         )
 
-    file_path = UPLOAD_DIR / f"{uuid4()}.pdf"
-
     try:
-        with file_path.open("wb") as buffer:
-            while content := await file.read(1024 * 1024):
-                buffer.write(content)
+        # 2. Read the file content into memory
+        pdf_bytes = await file.read()
+
+        # 3. Check if the file is larger than 10 MB
+        if len(pdf_bytes) > MAX_PDF_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="PDF exceeds the 10 MB limit."
+            )
+
+        # 4. Check if it is a real PDF (valid PDFs always start with '%PDF-')
+        if not pdf_bytes.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=400,
+                detail="The uploaded file is not a valid PDF."
+            )
 
         document_id = ingest_document(
-            str(file_path),
+            pdf_bytes,
             file.filename,
             "test-user"
         )
@@ -56,6 +75,9 @@ async def upload_document(file: UploadFile = File(...)):
             "status": "READY"
         }
 
+    except HTTPException:
+        raise
+
     except Exception:
         raise HTTPException(
             status_code=500,
@@ -63,8 +85,8 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
     finally:
-        file_path.unlink(missing_ok=True)
         await file.close()
+
 
 
 @app.get("/api/documents")
