@@ -110,6 +110,13 @@ async def upload_document(file: UploadFile = File(...), current_user: dict = Dep
     except HTTPException:
         raise
 
+    except ValueError as e:
+        # Passes the error message (e.g. "No extractable text found in the PDF.") to the frontend
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
+
     except Exception:
         logger.exception("Document processing failed during upload")
         raise HTTPException(

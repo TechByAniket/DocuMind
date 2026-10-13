@@ -41,6 +41,11 @@ def ingest_document(
         # 4. Split the text into smaller chunks
         chunks = chunk_pages(pages)
 
+        if not chunks:
+            raise ValueError(
+                "No extractable text found in the PDF."
+            )
+
         # 5. Save the chunks and metadata into Qdrant vector database
         if chunks:
             texts = []
