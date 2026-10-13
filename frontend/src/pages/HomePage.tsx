@@ -9,11 +9,12 @@ import DocumentCard from '../components/DocumentCard';
 import EmptyState from '../components/EmptyState';
 
 interface HomePageProps {
-  // Called when the user clicks "Chat with PDF" on a document card
   onOpenChat: (document: Document) => void;
+  userEmail?: string;
+  onSignOut?: () => void;
 }
 
-export default function HomePage({ onOpenChat }: HomePageProps) {
+export default function HomePage({ onOpenChat, userEmail, onSignOut }: HomePageProps) {
   // ── Document library state ───────────────────────────────────────────────
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
@@ -108,7 +109,7 @@ export default function HomePage({ onOpenChat }: HomePageProps) {
 
   return (
     <div className="min-h-screen bg-[#F7F6F2] flex flex-col">
-      <Navbar />
+      <Navbar userEmail={userEmail} onSignOut={onSignOut} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12">
 

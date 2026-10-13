@@ -7,7 +7,9 @@ from app.qdrant.vector_store import vector_store
 from app.database.database import SessionLocal
 from app.database.models import Document
 from app.supabase_storage.storage_service import upload_pdf_bytes
+import logging
 
+logger = logging.getLogger(__name__)
 
 def ingest_document(
     pdf_bytes: bytes,
@@ -64,11 +66,22 @@ def ingest_document(
 
         return str(document_id)
 
+    
     except Exception:
-        with SessionLocal() as db:
-            document = db.get(Document, document_id)
-            if document:
-                document.status = "FAILED"
-                db.commit()
+        logger.exception(
+            "Document ingestion failed for document_id=%s",
+            document_id
+        )
+
+        try:
+            with SessionLocal() as db:
+                document = db.get(Document, document_id)
+                if document:
+                    document.status = "FAILED"
+                    db.commit()
+        except Exception:
+            logger.exception(
+                "Failed to update document status to FAILED"
+            )
 
         raise

@@ -1,19 +1,26 @@
-import { BookOpen } from 'lucide-react';
+import { BookOpen, LogOut } from "lucide-react";
 
 interface NavbarProps {
-  // Optional action shown on the right — used by ChatPage for a "back" button
+  // Custom right-side content (e.g. "Back" button in ChatPage). Overrides default right side.
   rightSlot?: React.ReactNode;
+  // Currently signed-in user's email address
+  userEmail?: string;
+  // Callback when user clicks "Sign out"
+  onSignOut?: () => void;
 }
 
-// A compact top navigation bar shared across pages.
-export default function Navbar({ rightSlot }: NavbarProps) {
+export default function Navbar({
+  rightSlot,
+  userEmail,
+  onSignOut,
+}: NavbarProps) {
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-[#E8E9ED]">
       <nav
         className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between"
         aria-label="Main navigation"
       >
-        {/* Brand */}
+        {/* Left side: Brand logo & name */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-[10px] bg-[#635BFF] flex items-center justify-center flex-shrink-0">
             <BookOpen size={16} color="white" strokeWidth={2} aria-hidden="true" />
@@ -23,23 +30,31 @@ export default function Navbar({ rightSlot }: NavbarProps) {
           </span>
         </div>
 
-        {/* Right slot — context-dependent content */}
+        {/* Custom right side: shown if passed by page (e.g. ChatPage back button) */}
         {rightSlot && (
-          <div className="flex items-center gap-3">
-            {rightSlot}
-          </div>
+          <div className="flex items-center gap-3">{rightSlot}</div>
         )}
 
-        {/* Default right: workspace indicator */}
+        {/* Default right side: user email and sign-out button */}
         {!rightSlot && (
-          <div className="flex items-center gap-2 text-[13px] text-[#737384]">
-            <div
-              className="w-7 h-7 rounded-full bg-[#E8E5FC] flex items-center justify-center text-[11px] font-semibold text-[#635BFF]"
-              aria-label="Workspace"
+          <div className="flex items-center gap-3">
+            {userEmail && (
+              <span
+                className="hidden sm:block max-w-[180px] truncate text-[13px] text-[#737384]"
+                title={userEmail}
+              >
+                {userEmail}
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="flex items-center gap-2 rounded-[10px] border border-[#E8E9ED] px-3 py-2 text-[13px] font-medium text-[#22233A] hover:bg-gray-50 transition-colors"
             >
-              WS
-            </div>
-            <span className="hidden sm:inline">My Workspace</span>
+              <LogOut size={15} aria-hidden="true" />
+              <span>Sign out</span>
+            </button>
           </div>
         )}
       </nav>

@@ -1,13 +1,37 @@
 from app.qdrant.vector_store import vector_store
 from app.llm_service import generate_answer
+from qdrant_client.http.models import (
+    Filter,
+    FieldCondition,
+    MatchValue,
+)
 
 
-def answer_question(question: str) -> dict:
+def answer_question(
+    question: str,
+    document_id: str,
+    user_id: str,
+) -> dict:
 
     results = vector_store.similarity_search(
         question,
-        k=3
+        k=3,
+        filter=Filter(
+            must=[
+                FieldCondition(
+                    key="metadata.document_id",
+                    match=MatchValue(value=document_id),
+                ),
+                FieldCondition(
+                    key="metadata.user_id",
+                    match=MatchValue(value=user_id),
+                ),
+            ]
+        ),
     )
+
+    print("Requested document_id:", document_id)
+    print("Requested user_id:", user_id)
 
     context_parts = []
     sources = []
@@ -25,6 +49,10 @@ def answer_question(question: str) -> dict:
         })
 
     context = "\n\n".join(context_parts)
+
+    print("Retrieved chunks:", len(results))
+    print("Context length:", len(context))
+    print("Context preview:", context[:200].encode("ascii", errors="replace").decode("ascii"))
 
     prompt = f"""
     You are a document question-answering assistant.

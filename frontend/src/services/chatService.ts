@@ -7,9 +7,12 @@ import type { ChatResponse } from '../types/chat';
 // The document_id parameter is kept here for clarity and future backend updates.
 export async function askQuestion(
   question: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _documentId: string
+  documentId: string
 ): Promise<ChatResponse> {
-  const response = await apiClient.post<ChatResponse>('/api/chat', { question });
+  const response = await apiClient.post<ChatResponse>('/api/chat', {
+    question,
+    document_id: documentId,
+  });
+
   return response.data;
 }
