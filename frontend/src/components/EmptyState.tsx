@@ -8,7 +8,7 @@ interface EmptyStateProps {
 
 export default function EmptyState({ onUploadClick }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in">
+    <div className="flex flex-col items-center justify-center py-8 sm:py-10 px-6 text-center animate-fade-in w-full">
       {/* Icon illustration — composed from simple shapes, no images needed */}
       <div className="relative mb-6">
         {/* Background document stack (decorative) */}

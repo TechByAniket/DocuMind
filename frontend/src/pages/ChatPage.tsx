@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -8,6 +7,7 @@ import {
   AlertCircle,
   RefreshCw,
   BookOpen,
+  Sparkles,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -23,6 +23,8 @@ import PDFViewer from '../components/chat/PDFViewer';
 interface ChatPageProps {
   document: Document;
   onBack: () => void;
+  userEmail?: string;
+  onSignOut?: () => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -32,7 +34,12 @@ const SUGGESTED_QUESTIONS = [
   'What are the important conclusions?',
 ];
 
-export default function ChatPage({ document, onBack }: ChatPageProps) {
+export default function ChatPage({
+  document,
+  onBack,
+  userEmail,
+  onSignOut,
+}: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isAsking, setIsAsking] = useState(false);
@@ -40,6 +47,7 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
   const [lastFailedQuestion, setLastFailedQuestion] = useState('');
   const [selectedPage, setSelectedPage] = useState(1);
   const [activeHighlight, setActiveHighlight] = useState<{ page: number; text: string } | null>(null);
+  const [mobileTab, setMobileTab] = useState<'pdf' | 'chat'>('chat');
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -180,44 +188,89 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#F8F8FC] text-[#22233A]">
-      <Navbar />
+      <Navbar fluid userEmail={userEmail} onSignOut={onSignOut} />
 
-      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-4 sm:px-6">
-        {/* Header */}
-        <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 py-4">
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded-xl p-2 transition hover:bg-gray-100"
-            aria-label="Back to documents"
-          >
-            <ArrowLeft size={20} />
-          </button>
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-3 sm:px-6">
+        {/* Page Header */}
+        <header className="flex shrink-0 items-center justify-between border-b border-gray-200/80 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-xl p-2 transition hover:bg-gray-200/60 active:scale-95 text-[#22233A] cursor-pointer"
+              aria-label="Back to documents"
+              title="Back to library"
+            >
+              <ArrowLeft size={19} />
+            </button>
 
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#635BFF]/10">
-              <FileText size={20} className="text-[#635BFF]" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#635BFF]/10 text-[#635BFF]">
+              <FileText size={18} />
             </div>
 
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-semibold sm:text-base">
+              <h1 className="truncate text-sm font-semibold sm:text-base text-[#22233A]">
                 {document.filename}
               </h1>
 
-              <p className="text-xs text-gray-500">
-                {document.page_count != null
-                  ? `${document.page_count} pages`
-                  : 'PDF document'}
-                {document.status ? ` · ${document.status}` : ''}
+              <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                <span>
+                  {document.page_count != null
+                    ? `${document.page_count} pages`
+                    : 'PDF document'}
+                </span>
+                {document.status && (
+                  <>
+                    <span>·</span>
+                    <span className="capitalize">{document.status}</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
+
+          {/* Mobile view toggle (PDF vs Chat) */}
+          <div className="flex items-center gap-1 rounded-xl bg-gray-200/80 p-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTab('pdf')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                mobileTab === 'pdf'
+                  ? 'bg-white text-[#22233A] shadow-xs'
+                  : 'text-gray-600 hover:text-[#22233A]'
+              }`}
+            >
+              <FileText size={13} />
+              PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('chat')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                mobileTab === 'chat'
+                  ? 'bg-white text-[#22233A] shadow-xs'
+                  : 'text-gray-600 hover:text-[#22233A]'
+              }`}
+            >
+              <Sparkles size={13} />
+              Chat
+              {messages.length > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-[#635BFF] text-white text-[10px]">
+                  {messages.length}
+                </span>
+              )}
+            </button>
+          </div>
         </header>
 
-        {/* PDF viewer + Chat */}
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden py-4 lg:grid-cols-2">
-          {/* Left: PDF Viewer */}
-          <section className="min-h-0 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        {/* PDF viewer + Chat Split / Responsive View */}
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden py-3 sm:py-4 lg:grid-cols-2">
+          {/* Left: PDF Viewer Container */}
+          <section
+            className={`min-h-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs flex flex-col ${
+              mobileTab === 'chat' ? 'hidden lg:flex' : 'flex'
+            }`}
+          >
             <PDFViewer
               documentId={document.document_id}
               pageNumber={selectedPage}
@@ -226,37 +279,77 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
             />
           </section>
 
-          {/* Right: Chat */}
-          <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-col overflow-hidden lg:mx-0 lg:max-w-none">
-            {/* Messages */}
-            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto py-6">
+          {/* Right: Contained Chat with Sticky Input */}
+          <section
+            className={`min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs relative ${
+              mobileTab === 'pdf' ? 'hidden lg:flex' : 'flex'
+            }`}
+          >
+            {/* ── Chat Container Header ── */}
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-3 sm:px-5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#635BFF]/10 text-[#635BFF]">
+                  <Sparkles size={14} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-[#22233A]">AI Chat Assistant</h2>
+                  <p className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Grounded in document context
+                  </p>
+                </div>
+              </div>
+
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessages([]);
+                    setChatError('');
+                  }}
+                  className="text-xs text-gray-400 hover:text-red-500 px-2.5 py-1 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                  title="Clear conversation"
+                >
+                  Clear chat
+                </button>
+              )}
+            </div>
+
+            {/* ── Scrollable Messages Container (scrolls within container) ── */}
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5 custom-scrollbar bg-[#FBFBFE]">
               {messages.length === 0 ? (
-                <div className="flex min-h-full flex-col items-center justify-center px-4 text-center">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#635BFF]/10">
-                    <BookOpen size={27} className="text-[#635BFF]" />
+                <div className="flex min-h-full flex-col items-center justify-center px-4 py-8 text-center my-auto">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#635BFF]/10 text-[#635BFF] animate-float shadow-inner">
+                    <BookOpen size={26} />
                   </div>
 
-                  <h2 className="text-xl font-semibold">
-                    Chat with your PDF
-                  </h2>
+                  <h3 className="text-lg sm:text-xl font-semibold text-[#22233A]">
+                    Chat with your document
+                  </h3>
 
-                  <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-500">
-                    Ask questions about your document, summarize sections,
-                    or explore important concepts.
+                  <p className="mt-1.5 max-w-sm text-xs sm:text-sm leading-relaxed text-gray-500">
+                    Ask questions, summarize key sections, or find answers directly cited from your PDF.
                   </p>
 
-                  <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
-                    {SUGGESTED_QUESTIONS.map((question) => (
-                      <button
-                        key={question}
-                        type="button"
-                        disabled={isAsking}
-                        onClick={() => void sendQuestion(question)}
-                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm transition hover:border-[#635BFF]/40 hover:bg-[#635BFF]/5 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {question}
-                      </button>
-                    ))}
+                  <div className="mt-6 w-full max-w-md space-y-2">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-left pl-1">
+                      Suggested questions
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {SUGGESTED_QUESTIONS.map((question) => (
+                        <button
+                          key={question}
+                          type="button"
+                          disabled={isAsking}
+                          onClick={() => void sendQuestion(question)}
+                          className="group flex items-center justify-between text-left rounded-xl border border-gray-200 bg-white p-3 text-xs font-medium text-[#22233A]
+                                     hover:border-[#635BFF]/40 hover:bg-[#635BFF]/5 hover:shadow-xs transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                        >
+                          <span className="truncate pr-1">{question}</span>
+                          <span className="text-gray-300 group-hover:text-[#635BFF] group-hover:translate-x-0.5 transition-all text-sm shrink-0">→</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -269,17 +362,24 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                   return (
                     <div
                       key={`${index}-${message.role}`}
-                      className={`flex ${
+                      className={`flex animate-fade-slide-up ${
                         isUser ? 'justify-end' : 'justify-start'
                       }`}
                     >
                       <div
-                        className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[90%] ${
+                        className={`max-w-[92%] sm:max-w-[85%] rounded-2xl px-4 py-3.5 text-sm leading-relaxed ${
                           isUser
-                            ? 'rounded-br-md bg-[#635BFF] text-white'
-                            : 'rounded-bl-md border border-gray-100 bg-white shadow-sm'
+                            ? 'rounded-br-sm bg-[#635BFF] text-white shadow-[0_2px_8px_rgba(99,91,255,0.25)]'
+                            : 'rounded-tl-sm border border-gray-200/80 bg-white shadow-xs text-[#22233A]'
                         }`}
                       >
+                        {!isUser && (
+                          <div className="flex items-center gap-1.5 mb-1.5 text-xs font-semibold text-[#635BFF]">
+                            <Sparkles size={13} />
+                            <span>DocuMind</span>
+                          </div>
+                        )}
+
                         {isUser ? (
                           <p className="whitespace-pre-wrap">
                             {message.content}
@@ -292,11 +392,14 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                           <TypingIndicator />
                         ) : null}
 
-                        {/* Source page citations — clicking scrolls the PDF and highlights the text */}
+                        {/* Source page citations — clicking scrolls the PDF and highlights text */}
                         {!isUser &&
                           Array.isArray(message.sources) &&
                           message.sources.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                            <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                              <span className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
+                                <BookOpen size={12} /> Sources:
+                              </span>
                               {message.sources.map((source, sourceIndex) => (
                                 <button
                                   key={sourceIndex}
@@ -307,10 +410,16 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                                       page: source.page_number,
                                       text: source.chunk_text ?? '',
                                     });
+                                    setMobileTab('pdf');
                                   }}
-                                  className="cursor-pointer rounded-lg bg-[#635BFF]/10 px-2 py-1 text-xs font-medium text-[#635BFF] transition hover:bg-[#635BFF]/20"
+                                  className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-[#635BFF]/10 px-2.5 py-1 text-xs font-medium text-[#635BFF]
+                                             border border-[#635BFF]/20 transition-all duration-150
+                                             hover:bg-[#635BFF] hover:text-white hover:border-[#635BFF] hover:shadow-[0_2px_6px_rgba(99,91,255,0.25)]
+                                             active:scale-95"
+                                  title={`Jump to Page ${source.page_number} in PDF`}
                                 >
-                                  Page {source.page_number}
+                                  <span>Page {source.page_number}</span>
+                                  <span className="text-[10px] opacity-70">↗</span>
                                 </button>
                               ))}
                             </div>
@@ -338,7 +447,7 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                           type="button"
                           onClick={handleRetry}
                           disabled={isAsking}
-                          className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
+                          className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50 cursor-pointer"
                         >
                           <RefreshCw size={14} />
                           Retry
@@ -349,14 +458,15 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                 </div>
               )}
 
-              <div ref={bottomRef} />
+              <div ref={bottomRef} className="h-1" />
             </div>
 
-            {/* Composer */}
-            <div className="shrink-0 border-t border-gray-200 bg-[#F8F8FC] py-4">
+            {/* ── Sticky Typing Message Input (docked at container bottom) ── */}
+            <div className="shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur-sm p-3.5 sm:p-4 z-10 shadow-[0_-4px_16px_rgba(0,0,0,0.02)]">
               <form
                 onSubmit={handleSubmit}
-                className="flex items-end gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm focus-within:border-[#635BFF]/50"
+                className="flex items-end gap-2 rounded-2xl border border-gray-200 bg-[#FAFAFC] p-2 transition-all duration-150
+                           focus-within:border-[#635BFF]/60 focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(99,91,255,0.12)]"
               >
                 <textarea
                   ref={textareaRef}
@@ -366,14 +476,17 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                   placeholder="Ask a question about your PDF..."
                   rows={1}
                   disabled={isAsking}
-                  className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
+                  className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-3 py-2 text-sm text-[#22233A] outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
                 />
 
                 <button
                   type="submit"
                   disabled={!inputValue.trim() || isAsking}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#635BFF] text-white transition hover:bg-[#5148E5] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#635BFF] text-white transition-all
+                             hover:bg-[#5148E5] hover:shadow-[0_2px_8px_rgba(99,91,255,0.3)] active:scale-95
+                             disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:shadow-none cursor-pointer"
                   aria-label="Send question"
+                  title="Send question (Enter)"
                 >
                   {isAsking ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -383,9 +496,16 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                 </button>
               </form>
 
-              <p className="mt-2 text-center text-xs text-gray-400">
-                Enter to send · Shift + Enter for a new line
-              </p>
+              <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400 px-1">
+                <span>
+                  Press <kbd className="px-1 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-600 font-mono text-[10px]">Enter ↵</kbd> to send · <kbd className="px-1 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-600 font-mono text-[10px]">Shift + Enter</kbd> for newline
+                </span>
+                {inputValue.length > 0 && (
+                  <span className="font-mono text-[10px] text-gray-400">
+                    {inputValue.length} chars
+                  </span>
+                )}
+              </div>
             </div>
           </section>
         </main>

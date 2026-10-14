@@ -34,16 +34,20 @@ export default function DocumentCard({ document, onChatClick }: DocumentCardProp
 
   return (
     <article
-      className="group relative bg-white rounded-[14px] border border-[#E8E9ED] p-5
-                 hover:border-[#D0D1D9] hover:shadow-[0_4px_16px_rgba(34,35,58,0.08)]
-                 transition-all duration-200 ease-out"
+      onClick={() => isReady && onChatClick(document)}
+      className={`group relative bg-white rounded-[14px] border border-[#E8E9ED] p-5
+                 hover:border-[#C4C0F7] hover:shadow-[0_8px_24px_rgba(99,91,255,0.10)]
+                 hover:-translate-y-0.5 hover:scale-[1.005]
+                 transition-all duration-200 ease-out ${isReady ? 'cursor-pointer' : ''}`}
       aria-label={`Document: ${document.filename}`}
     >
       {/* Top section: icon + file info */}
       <div className="flex items-start gap-3 mb-4">
         {/* PDF icon badge */}
-        <div className="w-10 h-10 rounded-[10px] bg-[#E8E5FC] flex items-center justify-center flex-shrink-0">
-          <FileText size={18} className="text-[#635BFF]" aria-hidden="true" />
+        <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#E8E5FC] to-[#D4CFFA]
+                        group-hover:from-[#635BFF] group-hover:to-[#7B75FF]
+                        flex items-center justify-center flex-shrink-0 transition-all duration-200">
+          <FileText size={18} className="text-[#635BFF] group-hover:text-white transition-colors duration-200" aria-hidden="true" />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -114,11 +118,17 @@ export default function DocumentCard({ document, onChatClick }: DocumentCardProp
         className="w-full flex items-center justify-center gap-2 py-2 rounded-[10px]
                    text-[13px] font-medium transition-all duration-150 cursor-pointer
                    disabled:opacity-40 disabled:cursor-not-allowed
-                   bg-[#635BFF] text-white hover:bg-[#4F48D9] active:bg-[#4340C0]"
+                   bg-[#635BFF] text-white hover:bg-[#4F48D9] active:scale-[0.98] active:bg-[#4340C0]
+                   shadow-[0_1px_3px_rgba(99,91,255,0.3)] hover:shadow-[0_3px_8px_rgba(99,91,255,0.4)]"
         aria-label={isReady ? `Chat with ${document.filename}` : `${document.filename} is not ready yet`}
       >
         <MessageCircle size={14} aria-hidden="true" />
         {isReady ? 'Chat with PDF' : isProcessing ? 'Processing…' : 'Unavailable'}
+        {isReady && (
+          <span className="ml-auto opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-150" aria-hidden="true">
+            →
+          </span>
+        )}
       </button>
     </article>
   );

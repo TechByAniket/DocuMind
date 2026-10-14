@@ -120,7 +120,7 @@ export default function HomePage({ onOpenChat, userEmail, onSignOut }: HomePageP
             className="text-[28px] sm:text-[34px] font-semibold text-[#22233A] tracking-[-0.5px] leading-tight mb-2"
           >
             Your documents,{' '}
-            <span className="text-[#635BFF]">understood.</span>
+            <span className="text-shimmer">understood.</span>
           </h1>
           <p className="text-[15px] text-[#737384] max-w-md leading-relaxed">
             Upload a PDF and ask questions in plain language. DocuMind finds the
@@ -150,112 +150,160 @@ export default function HomePage({ onOpenChat, userEmail, onSignOut }: HomePageP
           />
         </section>
 
-        {/* ── Document library ─────────────────────────────────────────── */}
-        <section aria-labelledby="library-heading">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-            <h2
-              id="library-heading"
-              className="text-[17px] font-semibold text-[#22233A]"
-            >
-              Your library
-              {documents.length > 0 && (
-                <span className="ml-2 text-[13px] font-normal text-[#737384]">
-                  {documents.length} {documents.length === 1 ? 'document' : 'documents'}
-                </span>
-              )}
-            </h2>
+        {/* ── Document library (Fixed container with internal scrolling) ── */}
+        <section
+          aria-labelledby="library-heading"
+          className="bg-white rounded-[16px] border border-[#E8E9ED] shadow-sm flex flex-col overflow-hidden"
+        >
+          {/* Fixed Container Header */}
+          <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-[#E8E9ED] bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <h2
+                id="library-heading"
+                className="text-[16px] sm:text-[17px] font-semibold text-[#22233A] flex items-center gap-2"
+              >
+                Your library
+                {documents.length > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#E8E5FC] text-[#635BFF]">
+                    {documents.length} {documents.length === 1 ? 'document' : 'documents'}
+                  </span>
+                )}
+              </h2>
+            </div>
 
-            {/* Search — only show if there are documents */}
-            {documents.length > 0 && (
-              <div className="relative">
-                <Search
-                  size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737384] pointer-events-none"
+            <div className="flex items-center gap-2">
+              {/* Search — only show if there are documents */}
+              {documents.length > 0 && (
+                <div className="relative flex-1 sm:flex-initial">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737384] pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <input
+                    id="library-search"
+                    type="search"
+                    placeholder="Search documents…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full sm:w-56 pl-8.5 pr-3 py-1.5 rounded-[10px] text-[13px]
+                               bg-[#F7F6F2] border border-transparent text-[#22233A]
+                               placeholder:text-[#737384]
+                               focus:bg-white focus:border-[#635BFF] focus:ring-2 focus:ring-[#635BFF]/15
+                               outline-none transition-all duration-150"
+                    aria-label="Search your documents"
+                  />
+                </div>
+              )}
+
+              {/* Refresh button */}
+              <button
+                type="button"
+                onClick={loadDocuments}
+                disabled={isLoadingDocs}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-[#E8E9ED]
+                           text-[13px] font-medium text-[#737384] hover:text-[#635BFF] hover:bg-[#F7F6F2]
+                           disabled:opacity-50 transition-colors cursor-pointer shrink-0"
+                aria-label="Refresh library"
+                title="Refresh library"
+              >
+                <Loader2
+                  size={13}
+                  className={isLoadingDocs ? 'animate-spin text-[#635BFF]' : ''}
                   aria-hidden="true"
                 />
-                <input
-                  id="library-search"
-                  type="search"
-                  placeholder="Search documents…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full sm:w-56 pl-9 pr-3 py-2 rounded-[10px] text-[13px]
-                             bg-white border border-[#E8E9ED] text-[#22233A]
-                             placeholder:text-[#737384]
-                             focus:border-[#635BFF] focus:ring-2 focus:ring-[#635BFF]/15
-                             outline-none transition-all duration-150"
-                  aria-label="Search your documents"
-                />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Fixed Container Body: Internal Scroll Area */}
+          <div className="h-[480px] sm:h-[520px] overflow-y-auto p-5 sm:p-6 custom-scrollbar bg-[#FAFAFC]/30">
+            {/* Loading skeletons */}
+            {isLoadingDocs && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading documents">
+                {[1, 2, 3, 4].map((i) => <DocumentSkeleton key={i} />)}
+              </div>
+            )}
+
+            {/* Load error */}
+            {!isLoadingDocs && loadError && (
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-3 px-4 py-4 rounded-[12px]
+                           bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-[14px]"
+              >
+                <span>{loadError}</span>
+                <button
+                  type="button"
+                  onClick={loadDocuments}
+                  className="text-[13px] font-medium underline underline-offset-2 hover:no-underline transition-all cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!isLoadingDocs && !loadError && documents.length === 0 && (
+              <div className="h-full flex items-center justify-center">
+                <EmptyState onUploadClick={scrollToUpload} />
+              </div>
+            )}
+
+            {/* Search: no results */}
+            {!isLoadingDocs && !loadError && documents.length > 0 && filteredDocs.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 rounded-full bg-[#E8E9ED]/60 flex items-center justify-center mb-3 text-[#737384]">
+                  <Search size={20} />
+                </div>
+                <p className="text-[14px] text-[#22233A] font-medium">No documents found</p>
+                <p className="text-[13px] text-[#737384] mt-1">
+                  No documents match "<strong>{searchQuery}</strong>"
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-3 text-[13px] text-[#635BFF] hover:underline cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
+
+            {/* Document grid */}
+            {!isLoadingDocs && !loadError && filteredDocs.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredDocs.map((doc, index) => (
+                  <div
+                    key={doc.document_id}
+                    className="animate-slide-in-up"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <DocumentCard
+                      document={doc}
+                      onChatClick={onOpenChat}
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Loading skeletons */}
-          {isLoadingDocs && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading documents">
-              {[1, 2, 3, 4].map((i) => <DocumentSkeleton key={i} />)}
-            </div>
-          )}
-
-          {/* Load error */}
-          {!isLoadingDocs && loadError && (
-            <div
-              role="alert"
-              className="flex items-center justify-between gap-3 px-4 py-4 rounded-[12px]
-                         bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-[14px]"
-            >
-              <span>{loadError}</span>
-              <button
-                type="button"
-                onClick={loadDocuments}
-                className="text-[13px] font-medium underline underline-offset-2 hover:no-underline transition-all cursor-pointer"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!isLoadingDocs && !loadError && documents.length === 0 && (
-            <EmptyState onUploadClick={scrollToUpload} />
-          )}
-
-          {/* Search: no results */}
-          {!isLoadingDocs && !loadError && documents.length > 0 && filteredDocs.length === 0 && (
-            <p className="text-[14px] text-[#737384] text-center py-10">
-              No documents match "<strong>{searchQuery}</strong>".
-            </p>
-          )}
-
-          {/* Document grid */}
-          {!isLoadingDocs && !loadError && filteredDocs.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {filteredDocs.map((doc) => (
-                <DocumentCard
-                  key={doc.document_id}
-                  document={doc}
-                  onChatClick={onOpenChat}
-                />
-              ))}
+          {/* Footer status summary bar (if documents exist) */}
+          {!isLoadingDocs && !loadError && documents.length > 0 && (
+            <div className="shrink-0 px-5 sm:px-6 py-2.5 bg-white border-t border-[#E8E9ED] flex items-center justify-between text-[12px] text-[#737384]">
+              <span>
+                {filteredDocs.length === documents.length
+                  ? `Showing all ${documents.length} ${documents.length === 1 ? 'document' : 'documents'}`
+                  : `Showing ${filteredDocs.length} of ${documents.length} documents`}
+              </span>
+              <span className="text-[11px] text-[#9A9AAD]">
+                Scroll within container to view more
+              </span>
             </div>
           )}
         </section>
-
-        {/* Refresh button (subtle, for manual refresh) */}
-        {!isLoadingDocs && documents.length > 0 && (
-          <div className="mt-6 flex justify-center">
-            <button
-              type="button"
-              onClick={loadDocuments}
-              className="flex items-center gap-1.5 text-[12px] text-[#737384] hover:text-[#635BFF]
-                         transition-colors duration-150 cursor-pointer"
-              aria-label="Refresh document list"
-            >
-              <Loader2 size={12} aria-hidden="true" />
-              Refresh library
-            </button>
-          </div>
-        )}
       </main>
     </div>
   );

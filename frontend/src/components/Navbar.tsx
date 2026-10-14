@@ -7,17 +7,22 @@ interface NavbarProps {
   userEmail?: string;
   // Callback when user clicks "Sign out"
   onSignOut?: () => void;
+  // Use wide max-width for split view pages (e.g. ChatPage)
+  fluid?: boolean;
 }
 
 export default function Navbar({
   rightSlot,
   userEmail,
   onSignOut,
+  fluid = false,
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-[#E8E9ED]">
       <nav
-        className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between"
+        className={`${
+          fluid ? 'max-w-[1600px]' : 'max-w-5xl'
+        } mx-auto px-4 sm:px-6 h-14 flex items-center justify-between`}
         aria-label="Main navigation"
       >
         {/* Left side: Brand logo & name */}
@@ -50,7 +55,7 @@ export default function Navbar({
             <button
               type="button"
               onClick={onSignOut}
-              className="flex items-center gap-2 rounded-[10px] border border-[#E8E9ED] px-3 py-2 text-[13px] font-medium text-[#22233A] hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 rounded-[10px] border border-[#E8E9ED] px-3 py-2 text-[13px] font-medium text-[#22233A] hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <LogOut size={15} aria-hidden="true" />
               <span>Sign out</span>

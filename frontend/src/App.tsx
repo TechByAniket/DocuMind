@@ -74,7 +74,14 @@ export default function App() {
 
   // 3. Chat view: show active document conversation
   if (currentView === 'chat' && activeDocument) {
-    return <ChatPage document={activeDocument} onBack={goHome} />;
+    return (
+      <ChatPage
+        document={activeDocument}
+        onBack={goHome}
+        userEmail={session?.user.email}
+        onSignOut={handleSignOut}
+      />
+    );
   }
 
   return (
