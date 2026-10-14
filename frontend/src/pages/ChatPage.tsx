@@ -38,6 +38,8 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
   const [isAsking, setIsAsking] = useState(false);
   const [chatError, setChatError] = useState('');
   const [lastFailedQuestion, setLastFailedQuestion] = useState('');
+  const [selectedPage, setSelectedPage] = useState(1);
+  const [activeHighlight, setActiveHighlight] = useState<{ page: number; text: string } | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -82,7 +84,7 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
     ]);
 
     try {
-      await streamQuestion(
+      const sources = await streamQuestion(
         trimmedQuestion,
         document.document_id,
         (chunk: string) => {
@@ -91,16 +93,36 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
             const lastMessage = updated[updated.length - 1];
 
             if (lastMessage?.role === 'assistant') {
-              updated[updated.length - 1] = {
-                ...lastMessage,
-                content: lastMessage.content + chunk,
-              };
+              // Special sentinel: replace the full content instead of appending
+              if (chunk.startsWith('\x00REPLACE\x00')) {
+                updated[updated.length - 1] = {
+                  ...lastMessage,
+                  content: chunk.slice('\x00REPLACE\x00'.length),
+                };
+              } else {
+                updated[updated.length - 1] = {
+                  ...lastMessage,
+                  content: lastMessage.content + chunk,
+                };
+              }
             }
 
             return updated;
           });
         },
       );
+
+      // Attach parsed sources to the last assistant message
+      if (sources.length > 0) {
+        setMessages((previous) => {
+          const updated = [...previous];
+          const lastMessage = updated[updated.length - 1];
+          if (lastMessage?.role === 'assistant') {
+            updated[updated.length - 1] = { ...lastMessage, sources };
+          }
+          return updated;
+        });
+      }
     } catch (error: unknown) {
       setMessages((previous) => previous.slice(0, -2));
       setLastFailedQuestion(trimmedQuestion);
@@ -196,7 +218,12 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden py-4 lg:grid-cols-2">
           {/* Left: PDF Viewer */}
           <section className="min-h-0 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-            <PDFViewer documentId={document.document_id} />
+            <PDFViewer
+              documentId={document.document_id}
+              pageNumber={selectedPage}
+              highlightPage={activeHighlight?.page}
+              highlightText={activeHighlight?.text}
+            />
           </section>
 
           {/* Right: Chat */}
@@ -265,32 +292,26 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
                           <TypingIndicator />
                         ) : null}
 
-                        {/* Source page references */}
+                        {/* Source page citations — clicking scrolls the PDF and highlights the text */}
                         {!isUser &&
-                          'sources' in message &&
                           Array.isArray(message.sources) &&
                           message.sources.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                              {[
-                                ...new Set(
-                                  message.sources
-                                    .map((source) =>
-                                      typeof source === 'number'
-                                        ? source
-                                        : source.page_number,
-                                    )
-                                    .filter(
-                                      (page): page is number =>
-                                        typeof page === 'number',
-                                    ),
-                                ),
-                              ].map((page) => (
-                                <span
-                                  key={page}
-                                  className="rounded-lg bg-[#635BFF]/10 px-2 py-1 text-xs font-medium text-[#635BFF]"
+                              {message.sources.map((source, sourceIndex) => (
+                                <button
+                                  key={sourceIndex}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedPage(source.page_number);
+                                    setActiveHighlight({
+                                      page: source.page_number,
+                                      text: source.chunk_text ?? '',
+                                    });
+                                  }}
+                                  className="cursor-pointer rounded-lg bg-[#635BFF]/10 px-2 py-1 text-xs font-medium text-[#635BFF] transition hover:bg-[#635BFF]/20"
                                 >
-                                  Page {page}
-                                </span>
+                                  Page {source.page_number}
+                                </button>
                               ))}
                             </div>
                           )}

@@ -1,13 +1,8 @@
 import apiClient from './api';
-import type { ChatResponse } from '../types/chat';
+import type { ChatResponse, Source } from '../types/chat';
 import { supabase } from '../lib/supabase';
 
 // Send a question to the chat endpoint.
-// IMPORTANT: The backend's /api/chat currently does NOT accept document_id —
-// it searches across all ingested document vectors globally.
-// The document_id parameter is kept here for clarity and future backend updates.
-
-
 export async function askQuestion(
   question: string,
   documentId: string
@@ -20,11 +15,13 @@ export async function askQuestion(
   return response.data;
 }
 
+const SOURCES_SENTINEL = '\n\n__SOURCES__:';
+
 export async function streamQuestion(
   question: string,
   documentId: string,
-  onChunk: (text: string) => void
-): Promise<void> {
+  onChunk: (text: string) => void,
+): Promise<Source[]> {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
@@ -57,21 +54,43 @@ export async function streamQuestion(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
 
+  // Stream tokens live for a good UX while buffering the full text.
+  let rawText = '';
+
   try {
     while (true) {
       const { value, done } = await reader.read();
-
       if (done) break;
-
-      onChunk(decoder.decode(value, { stream: true }));
+      const chunk = decoder.decode(value, { stream: true });
+      rawText += chunk;
+      onChunk(chunk);
     }
-
     const remaining = decoder.decode();
-
     if (remaining) {
+      rawText += remaining;
       onChunk(remaining);
     }
   } finally {
     reader.releaseLock();
   }
+
+  // Detect and strip the sources trailer the backend appended after the answer.
+  const sentinelIndex = rawText.indexOf(SOURCES_SENTINEL);
+  let sources: Source[] = [];
+
+  if (sentinelIndex !== -1) {
+    const answerText = rawText.slice(0, sentinelIndex);
+    // Overwrite the displayed text with the clean answer (no trailer).
+    // A negative-length string replaces the full accumulated content.
+    onChunk('\x00REPLACE\x00' + answerText);
+    try {
+      sources = JSON.parse(
+        rawText.slice(sentinelIndex + SOURCES_SENTINEL.length)
+      ) as Source[];
+    } catch {
+      // Malformed trailer — no sources
+    }
+  }
+
+  return sources;
 }

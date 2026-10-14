@@ -45,6 +45,7 @@ def retrieve_context(
             "source_id": index,
             "page_number": page_number,
             "document_id": result.metadata.get("document_id"),
+            "chunk_text": result.page_content,
         })
 
     return "\n\n".join(context_parts), sources
@@ -134,27 +135,8 @@ def stream_answer_question(
     """
 
     def generate_response():
-        answer_parts = []
-
         for chunk in stream_answer(prompt):
-            answer_parts.append(chunk)
             yield chunk
-
-        answer = "".join(answer_parts)
-
-        if "I couldn't find the answer in the provided document." in answer:
-            return
-
-        if sources:
-            pages = sorted({
-                source["page_number"]
-                for source in sources
-                if source.get("page_number") is not None
-            })
-
-            if pages:
-                page_list = ", ".join(map(str, pages))
-                yield f"\n\nSources: Pages {page_list}"
 
     return generate_response(), sources
 

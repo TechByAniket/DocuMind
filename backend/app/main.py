@@ -93,8 +93,16 @@ def chat_stream(
         current_user["id"],
     )
 
+    async def stream_with_sources():
+        for chunk in answer_stream:
+            yield chunk
+        # Append structured source metadata as a sentinel trailer.
+        # The frontend splits on this marker to extract sources without
+        # polluting the visible answer text.
+        yield f"\n\n__SOURCES__:{json.dumps(sources)}"
+
     return StreamingResponse(
-        answer_stream,
+        stream_with_sources(),
         media_type="text/plain",
     )
 
