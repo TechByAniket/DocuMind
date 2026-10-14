@@ -52,6 +52,7 @@ def answer_question(
 
     print("Retrieved chunks:", len(results))
     print("Context length:", len(context))
+    # print("Retrieved context:\n", context)
     # print("Context preview:", context[:200].encode("ascii", errors="replace").decode("ascii"))
 
     prompt = f"""
@@ -59,8 +60,12 @@ def answer_question(
 
     Answer the user's question using only the provided context.
 
-    If the answer cannot be found in the context, say:
-    "I couldn't find the answer in the provided document."
+    For questions with multiple parts:
+    - Answer each part that is supported by the context.
+    - If a part cannot be answered from the context, clearly state that the information is not available in the provided document.
+    - Never invent missing facts or use outside knowledge.
+    - Use the fallback message only when none of the question can be answered from the context:
+      "I couldn't find the answer in the provided document."
 
     Context:
     {context}
