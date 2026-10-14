@@ -8,12 +8,11 @@ from qdrant_client.http.models import (
 import re
 
 
-def answer_question(
+def retrieve_context(
     question: str,
     document_id: str,
     user_id: str,
-) -> dict:
-
+) -> tuple[str, list[dict]]:
     results = vector_store.similarity_search(
         question,
         k=3,
@@ -31,10 +30,6 @@ def answer_question(
         ),
     )
 
-    # print("Requested document_id:", document_id)
-    # print("Requested user_id:", user_id)
-
-    
     context_parts = []
     sources = []
 
@@ -52,15 +47,25 @@ def answer_question(
             "document_id": result.metadata.get("document_id"),
         })
 
-    context = "\n\n".join(context_parts)
+    return "\n\n".join(context_parts), sources
 
+def answer_question(
+    question: str,
+    document_id: str,
+    user_id: str,
+) -> dict:
 
-    print("Retrieved chunks:", len(results))
+    context, sources = retrieve_context(
+        question,
+        document_id,
+        user_id,
+    )
+
     print("Context length:", len(context))
+    print("Retrieved sources:", len(sources))
     # print("Retrieved context:\n", context)
     # print("Context preview:", context[:200].encode("ascii", errors="replace").decode("ascii"))
 
-    
     prompt = f"""
     You are a document question-answering assistant.
 
@@ -93,37 +98,18 @@ def answer_question(
         "sources": sources,
     }
 
+
+
 def stream_answer_question(
     question: str,
     document_id: str,
     user_id: str,
 ):
-    results = vector_store.similarity_search(
+    context, sources = retrieve_context(
         question,
-        k=3,
-        filter=Filter(
-            must=[
-                FieldCondition(
-                    key="metadata.document_id",
-                    match=MatchValue(value=document_id),
-                ),
-                FieldCondition(
-                    key="metadata.user_id",
-                    match=MatchValue(value=user_id),
-                ),
-            ]
-        ),
+        document_id,
+        user_id,
     )
-
-    context_parts = []
-
-    for result in results:
-        page_number = result.metadata.get("page_number")
-        context_parts.append(
-            f"[Page {page_number}]\n{result.page_content}"
-        )
-
-    context = "\n\n".join(context_parts)
 
     prompt = f"""
     You are a document question-answering assistant.
@@ -147,7 +133,34 @@ def stream_answer_question(
     Answer:
     """
 
-    yield from stream_answer(prompt)
+    def generate_response():
+        answer_parts = []
+
+        for chunk in stream_answer(prompt):
+            answer_parts.append(chunk)
+            yield chunk
+
+        answer = "".join(answer_parts)
+
+        if "I couldn't find the answer in the provided document." in answer:
+            return
+
+        if sources:
+            pages = sorted({
+                source["page_number"]
+                for source in sources
+                if source.get("page_number") is not None
+            })
+
+            if pages:
+                page_list = ", ".join(map(str, pages))
+                yield f"\n\nSources: Pages {page_list}"
+
+    return generate_response(), sources
+
+
+
+
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ import logging
 
 from fastapi.responses import StreamingResponse
 from app.rag_pipeline import stream_answer_question
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ def chat(
     )
 
 
+
 @app.post("/api/chat/stream")
 def chat_stream(
     request: ChatRequest,
@@ -83,14 +85,19 @@ def chat_stream(
                 detail="Document not found."
             )
 
+    answer_stream, sources = stream_answer_question(
+        request.question,
+        request.document_id,
+        current_user["id"],
+    )
+
     return StreamingResponse(
-        stream_answer_question(
-            request.question,
-            request.document_id,
-            current_user["id"],
-        ),
+        answer_stream,
         media_type="text/plain",
     )
+
+
+
 
 # 10 MB file size limit (10 * 1024 * 1024 bytes)
 MAX_PDF_SIZE = 10 * 1024 * 1024
