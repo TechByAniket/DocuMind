@@ -1,4 +1,5 @@
 
+from sqlalchemy import Column
 import uuid
 from datetime import datetime
 
@@ -55,3 +56,5 @@ class Document(Base):
         nullable=False,
         server_default=func.now()
     )
+
+    storage_path = Column(String, nullable=True)

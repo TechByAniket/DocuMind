@@ -1,3 +1,5 @@
+from app.supabase_storage.storage_service import SUPABASE_BUCKET
+from app.authentication.auth import supabase
 from fastapi import Depends
 from app.authentication.auth import get_current_user
 # from fastapi import Depends
@@ -97,8 +99,6 @@ def chat_stream(
     )
 
 
-
-
 # 10 MB file size limit (10 * 1024 * 1024 bytes)
 MAX_PDF_SIZE = 10 * 1024 * 1024
 
@@ -188,3 +188,58 @@ def list_documents(current_user:dict = Depends(get_current_user)):
             }
             for document in documents
         ]
+
+@app.get("/api/documents/{document_id}/pdf-url")
+def get_document_pdf_url(
+    document_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    with SessionLocal() as db:
+        document = (
+            db.query(Document)
+            .filter(
+                Document.id == document_id,
+                Document.user_id == current_user["id"],
+            )
+            .first()
+        )
+
+        if document is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found."
+            )
+        
+        if not document.storage_path:
+            raise HTTPException(
+                status_code=404,
+                detail="PDF storage path not found.",
+            )
+
+        storage_path = document.storage_path
+    
+    try:
+        result = (
+            supabase.storage
+            .from_(SUPABASE_BUCKET)
+            .create_signed_url(storage_path, 300)
+        )
+
+        signed_url = result.get("signedURL") or result.get("signedUrl")
+
+        if not signed_url:
+            raise RuntimeError("Supabase did not return a signed URL.")
+
+        return {"url": signed_url, "expires_in": 300}
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception(
+            "Failed to generate PDF URL for document_id=%s",
+            document_id,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Could not generate PDF access URL.",
+        )

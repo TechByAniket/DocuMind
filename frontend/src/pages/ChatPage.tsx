@@ -1,422 +1,374 @@
+
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Send, Loader2, FileText, AlertCircle, RefreshCw, BookOpen } from 'lucide-react';
+import {
+  ArrowLeft,
+  Send,
+  Loader2,
+  FileText,
+  AlertCircle,
+  RefreshCw,
+  BookOpen,
+} from 'lucide-react';
 import axios from 'axios';
+
 import type { Document } from '../types/document';
 import type { ChatMessage } from '../types/chat';
-import { askQuestion, streamQuestion } from '../services/chatService';
+
+import { streamQuestion } from '../services/chatService';
 import Navbar from '../components/Navbar';
+import AnswerRenderer from '../components/chat/AnswerRenderer';
+import TypingIndicator from '../components/chat/TypingIndicator';
+import PDFViewer from '../components/chat/PDFViewer';
 
 interface ChatPageProps {
   document: Document;
   onBack: () => void;
 }
 
-// These chips appear before the user sends their first message.
-// They give the user an idea of what to ask.
 const SUGGESTED_QUESTIONS = [
   'Summarize this document',
+  'What are the key points?',
   'Explain the main concepts',
-  'What are the key takeaways?',
-  'List the important points',
+  'What are the important conclusions?',
 ];
-
-// ── Markdown-like renderer ───────────────────────────────────────────────────
-// The AI sometimes returns bold text (**word**), bullet points, and numbered lists.
-// This is a simple transformation — not a full Markdown parser.
-function renderAnswer(text: string): React.ReactNode {
-  const lines = text.split('\n');
-
-  return lines.map((line, i) => {
-    const trimmed = line.trim();
-
-    // Numbered list item: "1. Something"
-    if (/^\d+\.\s/.test(trimmed)) {
-      return (
-        <div key={i} className="flex gap-2 mb-1">
-          <span className="flex-shrink-0 font-medium text-[#635BFF] text-[13px] leading-6">
-            {trimmed.match(/^(\d+)\./)?.[1]}.
-          </span>
-          <span>{inlineFormat(trimmed.replace(/^\d+\.\s/, ''))}</span>
-        </div>
-      );
-    }
-
-    // Bullet point: "- Something" or "• Something"
-    if (/^[-•*]\s/.test(trimmed)) {
-      return (
-        <div key={i} className="flex gap-2 mb-1">
-          <span className="flex-shrink-0 text-[#635BFF] leading-6 text-[10px] mt-1">●</span>
-          <span>{inlineFormat(trimmed.replace(/^[-•*]\s/, ''))}</span>
-        </div>
-      );
-    }
-
-    // Empty line becomes spacing
-    if (trimmed === '') return <div key={i} className="h-2" />;
-
-    // Regular paragraph
-    return <p key={i} className="mb-1 leading-relaxed">{inlineFormat(trimmed)}</p>;
-  });
-}
-
-// Turn **bold** text into <strong> elements within a line
-function inlineFormat(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-semibold text-[#22233A]">{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
-}
-
-// ── Typing indicator (three bouncing dots) ────────────────────────────────────
-function TypingIndicator() {
-  return (
-    <div className="flex items-center gap-1 px-4 py-3" aria-label="AI is generating a response">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="w-2 h-2 rounded-full bg-[#635BFF] opacity-60"
-          style={{ animation: `pulse-soft 1.2s ease-in-out ${i * 0.2}s infinite` }}
-          aria-hidden="true"
-        />
-      ))}
-    </div>
-  );
-}
 
 export default function ChatPage({ document, onBack }: ChatPageProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isAsking, setIsAsking] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
+  const [chatError, setChatError] = useState('');
+  const [lastFailedQuestion, setLastFailedQuestion] = useState('');
 
-  // Auto-scroll to the bottom after each new message
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isAsking]);
+  }, [messages]);
 
-  // ── Send a question ─────────────────────────────────────────────────────
-  
-async function sendQuestion(question: string) {
-  const trimmed = question.trim();
-  if (!trimmed || isAsking) return;
-
-  const userMessage: ChatMessage = {
-    id: crypto.randomUUID(),
-    role: 'user',
-    content: trimmed,
-  };
-
-  const assistantId = crypto.randomUUID();
-
-  const assistantMessage: ChatMessage = {
-    id: assistantId,
-    role: 'assistant',
-    content: '',
-    sources: [],
-  };
-
-  setMessages((prev) => [...prev, userMessage, assistantMessage]);
-  setInputValue('');
-  setChatError(null);
-  setLastFailedQuestion(null);
-  setIsAsking(true);
-
-  try {
-    await streamQuestion(trimmed, document.document_id, (chunk) => {
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === assistantId
-            ? { ...message, content: message.content + chunk }
-            : message
-        )
-      );
-    });
-  } catch (error) {
-    setMessages((prev) =>
-      prev.filter(
-        (message) =>
-          message.id !== userMessage.id &&
-          message.id !== assistantId
-      )
-    );
-
-    setLastFailedQuestion(trimmed);
-
-    if (axios.isAxiosError(error)) {
-      const detail = error.response?.data?.detail;
-      setChatError(detail ?? 'The request failed. Please try again.');
-    } else {
-      setChatError(
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred. Please try again.'
-      );
-    }
-  } finally {
-    setIsAsking(false);
-  }
-}
-
-
-  // ── Keyboard handling for textarea ──────────────────────────────────────
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // Enter submits; Shift+Enter inserts a newline
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendQuestion(inputValue);
+  function resetTextareaHeight() {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
     }
   }
 
-  // Auto-grow textarea height as the user types
-  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setInputValue(e.target.value);
-    // Reset height first so it can shrink, then set to scrollHeight
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+  async function sendQuestion(question: string) {
+    const trimmedQuestion = question.trim();
+
+    if (!trimmedQuestion || isAsking) {
+      return;
+    }
+
+    setInputValue('');
+    setChatError('');
+    setLastFailedQuestion('');
+    setIsAsking(true);
+    resetTextareaHeight();
+
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: trimmedQuestion,
+    };
+
+    const assistantMessage: ChatMessage = {
+      role: 'assistant',
+      content: '',
+    };
+
+    setMessages((previous) => [
+      ...previous,
+      userMessage,
+      assistantMessage,
+    ]);
+
+    try {
+      await streamQuestion(
+        trimmedQuestion,
+        document.document_id,
+        (chunk: string) => {
+          setMessages((previous) => {
+            const updated = [...previous];
+            const lastMessage = updated[updated.length - 1];
+
+            if (lastMessage?.role === 'assistant') {
+              updated[updated.length - 1] = {
+                ...lastMessage,
+                content: lastMessage.content + chunk,
+              };
+            }
+
+            return updated;
+          });
+        },
+      );
+    } catch (error: unknown) {
+      setMessages((previous) => previous.slice(0, -2));
+      setLastFailedQuestion(trimmedQuestion);
+
+      if (axios.isAxiosError(error)) {
+        setChatError(
+          error.response?.data?.detail ||
+            error.response?.data?.message ||
+            'Unable to get an answer. Please try again.',
+        );
+      } else if (error instanceof Error) {
+        setChatError(error.message);
+      } else {
+        setChatError('Something went wrong. Please try again.');
+      }
+    } finally {
+      setIsAsking(false);
+      textareaRef.current?.focus();
+    }
   }
 
-  // ── Retry last failed question ──────────────────────────────────────────
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendQuestion(inputValue);
+  }
+
+  function handleKeyDown(
+    event: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) {
+    if (
+      event.key === 'Enter' &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      void sendQuestion(inputValue);
+    }
+  }
+
+  function handleInputChange(
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+  ) {
+    setInputValue(event.target.value);
+
+    const textarea = event.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+  }
+
   function handleRetry() {
     if (lastFailedQuestion) {
-      setChatError(null);
-      sendQuestion(lastFailedQuestion);
+      void sendQuestion(lastFailedQuestion);
     }
   }
 
-  // Strip .pdf for display
-  const docDisplayName = document.filename.replace(/\.pdf$/i, '');
-  const hasMessages = messages.length > 0;
-
   return (
-    <div className="min-h-screen bg-[#F7F6F2] flex flex-col">
-      {/* Navbar with back button */}
-      <Navbar
-        rightSlot={
+    <div className="flex h-screen flex-col overflow-hidden bg-[#F8F8FC] text-[#22233A]">
+      <Navbar />
+
+      <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-4 sm:px-6">
+        {/* Header */}
+        <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 py-4">
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-1.5 text-[13px] text-[#737384]
-                       hover:text-[#22233A] transition-colors duration-150 cursor-pointer"
-            aria-label="Back to document library"
+            className="rounded-xl p-2 transition hover:bg-gray-100"
+            aria-label="Back to documents"
           >
-            <ArrowLeft size={15} aria-hidden="true" />
-            Library
+            <ArrowLeft size={20} />
           </button>
-        }
-      />
 
-      {/* Document context banner */}
-      <div className="bg-white border-b border-[#E8E9ED]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-[8px] bg-[#E8E5FC] flex items-center justify-center flex-shrink-0">
-            <FileText size={14} className="text-[#635BFF]" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium text-[#22233A] truncate">{docDisplayName}</p>
-            {document.page_count != null && (
-              <p className="text-[11px] text-[#737384]">
-                {document.page_count} {document.page_count === 1 ? 'page' : 'pages'}
-              </p>
-            )}
-          </div>
-          <div className="ml-auto flex-shrink-0">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#DFF3E7] text-[#2D7A4F] text-[11px] font-medium">
-              Ready
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Chat area — flex-1 so it fills remaining height */}
-      <main className="flex-1 flex flex-col max-w-3xl w-full mx-auto px-4 sm:px-6 pb-4">
-
-        {/* Message list */}
-        <div className="flex-1 overflow-y-auto py-6 space-y-4" role="log" aria-live="polite" aria-label="Chat conversation">
-
-          {/* Welcome / empty chat state */}
-          {!hasMessages && (
-            <div className="flex flex-col items-center text-center pt-8 pb-4 animate-fade-in">
-              <div className="w-12 h-12 rounded-[14px] bg-[#E8E5FC] flex items-center justify-center mb-4">
-                <BookOpen size={22} className="text-[#635BFF]" aria-hidden="true" />
-              </div>
-              <h2 className="text-[17px] font-semibold text-[#22233A] mb-1.5">
-                Ask about your document
-              </h2>
-              <p className="text-[13px] text-[#737384] max-w-xs leading-relaxed mb-8">
-                Ask any question and DocuMind will find the answer inside{' '}
-                <span className="font-medium text-[#22233A]">{docDisplayName}</span>.
-              </p>
-
-              {/* Suggested question chips */}
-              <div className="flex flex-wrap gap-2 justify-center" role="list" aria-label="Suggested questions">
-                {SUGGESTED_QUESTIONS.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    role="listitem"
-                    onClick={() => sendQuestion(q)}
-                    disabled={isAsking}
-                    className="px-3.5 py-2 rounded-full border border-[#E8E9ED] bg-white
-                               text-[13px] text-[#22233A] hover:border-[#635BFF] hover:text-[#635BFF]
-                               hover:bg-[#F5F4FE] transition-all duration-150 cursor-pointer
-                               disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#635BFF]/10">
+              <FileText size={20} className="text-[#635BFF]" />
             </div>
-          )}
 
-          {/* Messages */}
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex animate-fade-slide-up ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {/* Assistant icon */}
-              {message.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-full bg-[#635BFF] flex items-center justify-center flex-shrink-0 mt-0.5 mr-2.5">
-                  <BookOpen size={13} color="white" aria-hidden="true" />
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold sm:text-base">
+                {document.filename}
+              </h1>
+
+              <p className="text-xs text-gray-500">
+                {document.page_count != null
+                  ? `${document.page_count} pages`
+                  : 'PDF document'}
+                {document.status ? ` · ${document.status}` : ''}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        {/* PDF viewer + Chat */}
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden py-4 lg:grid-cols-2">
+          {/* Left: PDF Viewer */}
+          <section className="min-h-0 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <PDFViewer documentId={document.document_id} />
+          </section>
+
+          {/* Right: Chat */}
+          <section className="mx-auto flex min-h-0 w-full max-w-3xl flex-col overflow-hidden lg:mx-0 lg:max-w-none">
+            {/* Messages */}
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto py-6">
+              {messages.length === 0 ? (
+                <div className="flex min-h-full flex-col items-center justify-center px-4 text-center">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#635BFF]/10">
+                    <BookOpen size={27} className="text-[#635BFF]" />
+                  </div>
+
+                  <h2 className="text-xl font-semibold">
+                    Chat with your PDF
+                  </h2>
+
+                  <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-500">
+                    Ask questions about your document, summarize sections,
+                    or explore important concepts.
+                  </p>
+
+                  <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
+                    {SUGGESTED_QUESTIONS.map((question) => (
+                      <button
+                        key={question}
+                        type="button"
+                        disabled={isAsking}
+                        onClick={() => void sendQuestion(question)}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm transition hover:border-[#635BFF]/40 hover:bg-[#635BFF]/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((message, index) => {
+                  const isUser = message.role === 'user';
+                  const isLastAssistant =
+                    message.role === 'assistant' &&
+                    index === messages.length - 1;
+
+                  return (
+                    <div
+                      key={`${index}-${message.role}`}
+                      className={`flex ${
+                        isUser ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[90%] ${
+                          isUser
+                            ? 'rounded-br-md bg-[#635BFF] text-white'
+                            : 'rounded-bl-md border border-gray-100 bg-white shadow-sm'
+                        }`}
+                      >
+                        {isUser ? (
+                          <p className="whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        ) : message.content ? (
+                          <div className="break-words">
+                            <AnswerRenderer text={message.content} />
+                          </div>
+                        ) : isAsking && isLastAssistant ? (
+                          <TypingIndicator />
+                        ) : null}
+
+                        {/* Source page references */}
+                        {!isUser &&
+                          'sources' in message &&
+                          Array.isArray(message.sources) &&
+                          message.sources.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                              {[
+                                ...new Set(
+                                  message.sources
+                                    .map((source) =>
+                                      typeof source === 'number'
+                                        ? source
+                                        : source.page_number,
+                                    )
+                                    .filter(
+                                      (page): page is number =>
+                                        typeof page === 'number',
+                                    ),
+                                ),
+                              ].map((page) => (
+                                <span
+                                  key={page}
+                                  className="rounded-lg bg-[#635BFF]/10 px-2 py-1 text-xs font-medium text-[#635BFF]"
+                                >
+                                  Page {page}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              {/* Error and retry */}
+              {chatError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle
+                      size={18}
+                      className="mt-0.5 shrink-0 text-red-600"
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-red-700">{chatError}</p>
+
+                      {lastFailedQuestion && (
+                        <button
+                          type="button"
+                          onClick={handleRetry}
+                          disabled={isAsking}
+                          className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
+                        >
+                          <RefreshCw size={14} />
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <div className={`
-                max-w-[82%] sm:max-w-[75%] rounded-[14px] px-4 py-3
-                ${message.role === 'user'
-                  ? 'bg-[#635BFF] text-white rounded-br-[4px]'
-                  : 'bg-white border border-[#E8E9ED] text-[#22233A] rounded-bl-[4px]'
-                }
-              `}>
-                {message.role === 'user' ? (
-                  <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
-                ) : (
-                  <div className="text-[14px] leading-relaxed">
-                    {renderAnswer(message.content)}
-
-                    {/* Source citations */}
-                    {message.sources && message.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-[#E8E9ED]">
-                        <p className="text-[11px] font-medium text-[#737384] mb-2 uppercase tracking-wide">
-                          Sources
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {/* Deduplicate page numbers before rendering */}
-                          {[...new Set(message.sources.map((s) => s.page_number))]
-                            .sort((a, b) => a - b)
-                            .map((page) => (
-                              <span
-                                key={page}
-                                className="inline-flex items-center px-2 py-0.5 rounded-full
-                                           bg-[#E8E5FC] text-[#635BFF] text-[11px] font-medium"
-                                aria-label={`Source: Page ${page}`}
-                              >
-                                Page {page}
-                              </span>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <div ref={bottomRef} />
             </div>
-          ))}
 
-          {/* Typing indicator */}
-          {isAsking && (
-            <div className="flex items-start animate-fade-in">
-              <div className="w-7 h-7 rounded-full bg-[#635BFF] flex items-center justify-center flex-shrink-0 mr-2.5">
-                <BookOpen size={13} color="white" aria-hidden="true" />
-              </div>
-              <div className="bg-white border border-[#E8E9ED] rounded-[14px] rounded-bl-[4px]">
-                <TypingIndicator />
-              </div>
-            </div>
-          )}
+            {/* Composer */}
+            <div className="shrink-0 border-t border-gray-200 bg-[#F8F8FC] py-4">
+              <form
+                onSubmit={handleSubmit}
+                className="flex items-end gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm focus-within:border-[#635BFF]/50"
+              >
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask a question about your PDF..."
+                  rows={1}
+                  disabled={isAsking}
+                  className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 disabled:cursor-not-allowed"
+                />
 
-          {/* Error state */}
-          {chatError && (
-            <div
-              role="alert"
-              className="flex items-start gap-2.5 px-4 py-3.5 rounded-[12px]
-                         bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-[13px] animate-fade-in"
-            >
-              <AlertCircle size={15} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="flex-1">
-                <p className="font-medium mb-0.5">Something went wrong</p>
-                <p className="text-[12px] opacity-80">{chatError}</p>
-              </div>
-              {lastFailedQuestion && (
                 <button
-                  type="button"
-                  onClick={handleRetry}
-                  className="flex items-center gap-1 text-[12px] font-medium text-[#DC2626]
-                             hover:underline cursor-pointer flex-shrink-0"
-                  aria-label="Retry sending the last question"
+                  type="submit"
+                  disabled={!inputValue.trim() || isAsking}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#635BFF] text-white transition hover:bg-[#5148E5] disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Send question"
                 >
-                  <RefreshCw size={12} aria-hidden="true" />
-                  Retry
+                  {isAsking ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Send size={18} />
+                  )}
                 </button>
-              )}
+              </form>
+
+              <p className="mt-2 text-center text-xs text-gray-400">
+                Enter to send · Shift + Enter for a new line
+              </p>
             </div>
-          )}
-
-          {/* Invisible div to scroll into view */}
-          <div ref={bottomRef} aria-hidden="true" />
-        </div>
-
-        {/* ── Message composer ──────────────────────────────────────────── */}
-        <div className="bg-white rounded-[16px] border border-[#E8E9ED] shadow-sm p-3">
-          <div className="flex items-end gap-2">
-            <label htmlFor="chat-input" className="sr-only">
-              Ask a question about {document.filename}
-            </label>
-            <textarea
-              ref={textareaRef}
-              id="chat-input"
-              rows={1}
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask a question about this document…"
-              disabled={isAsking}
-              className="flex-1 resize-none text-[14px] text-[#22233A] placeholder:text-[#737384]
-                         bg-transparent outline-none leading-relaxed py-1.5
-                         disabled:opacity-50"
-              style={{ minHeight: '36px', maxHeight: '160px' }}
-              aria-label="Chat message input"
-            />
-
-            <button
-              type="button"
-              onClick={() => sendQuestion(inputValue)}
-              disabled={!inputValue.trim() || isAsking}
-              className="flex-shrink-0 w-9 h-9 rounded-[10px] flex items-center justify-center
-                         bg-[#635BFF] text-white transition-all duration-150 cursor-pointer
-                         hover:bg-[#4F48D9] active:bg-[#4340C0]
-                         disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Send message"
-            >
-              {isAsking
-                ? <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                : <Send size={15} aria-hidden="true" />
-              }
-            </button>
-          </div>
-
-          <p className="text-[11px] text-[#9A9AAD] mt-2 pl-1">
-            Enter to send · Shift+Enter for new line
-          </p>
-        </div>
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

@@ -33,6 +33,7 @@ def ingest_document(
             id=document_id,
             user_id=user_id,
             filename=filename,
+            storage_path=storage_path,
             status="PROCESSING"
         )
         db.add(document)
