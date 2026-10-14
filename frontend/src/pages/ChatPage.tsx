@@ -3,7 +3,7 @@ import { ArrowLeft, Send, Loader2, FileText, AlertCircle, RefreshCw, BookOpen } 
 import axios from 'axios';
 import type { Document } from '../types/document';
 import type { ChatMessage } from '../types/chat';
-import { askQuestion } from '../services/chatService';
+import { askQuestion, streamQuestion } from '../services/chatService';
 import Navbar from '../components/Navbar';
 
 interface ChatPageProps {
@@ -102,47 +102,68 @@ export default function ChatPage({ document, onBack }: ChatPageProps) {
   }, [messages, isAsking]);
 
   // ── Send a question ─────────────────────────────────────────────────────
-  async function sendQuestion(question: string) {
-    const trimmed = question.trim();
-    if (!trimmed || isAsking) return;
+  
+async function sendQuestion(question: string) {
+  const trimmed = question.trim();
+  if (!trimmed || isAsking) return;
 
-    // Optimistically add the user message
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: trimmed,
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-    setChatError(null);
-    setLastFailedQuestion(null);
-    setIsAsking(true);
+  const userMessage: ChatMessage = {
+    id: crypto.randomUUID(),
+    role: 'user',
+    content: trimmed,
+  };
 
-    try {
-      const response = await askQuestion(trimmed, document.document_id);
+  const assistantId = crypto.randomUUID();
 
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: response.answer,
-        sources: response.sources,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      // Remove the optimistically added user message on failure
-      setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
-      setLastFailedQuestion(trimmed);
+  const assistantMessage: ChatMessage = {
+    id: assistantId,
+    role: 'assistant',
+    content: '',
+    sources: [],
+  };
 
-      if (axios.isAxiosError(error)) {
-        const detail = error.response?.data?.detail;
-        setChatError(detail ?? 'The request failed. Please try again.');
-      } else {
-        setChatError('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setIsAsking(false);
+  setMessages((prev) => [...prev, userMessage, assistantMessage]);
+  setInputValue('');
+  setChatError(null);
+  setLastFailedQuestion(null);
+  setIsAsking(true);
+
+  try {
+    await streamQuestion(trimmed, document.document_id, (chunk) => {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? { ...message, content: message.content + chunk }
+            : message
+        )
+      );
+    });
+  } catch (error) {
+    setMessages((prev) =>
+      prev.filter(
+        (message) =>
+          message.id !== userMessage.id &&
+          message.id !== assistantId
+      )
+    );
+
+    setLastFailedQuestion(trimmed);
+
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail;
+      setChatError(detail ?? 'The request failed. Please try again.');
+    } else {
+      setChatError(
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred. Please try again.'
+      );
     }
+  } finally {
+    setIsAsking(false);
   }
+}
+
 
   // ── Keyboard handling for textarea ──────────────────────────────────────
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

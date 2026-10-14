@@ -11,6 +11,9 @@ from app.schemas import ChatRequest
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+from fastapi.responses import StreamingResponse
+from app.rag_pipeline import stream_answer_question
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="DocuMind")
@@ -59,9 +62,35 @@ def chat(
     )
 
 
+@app.post("/api/chat/stream")
+def chat_stream(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    with SessionLocal() as db:
+        document = (
+            db.query(Document)
+            .filter(
+                Document.id == request.document_id,
+                Document.user_id == current_user["id"],
+            )
+            .first()
+        )
 
-    
+        if document is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found."
+            )
 
+    return StreamingResponse(
+        stream_answer_question(
+            request.question,
+            request.document_id,
+            current_user["id"],
+        ),
+        media_type="text/plain",
+    )
 
 # 10 MB file size limit (10 * 1024 * 1024 bytes)
 MAX_PDF_SIZE = 10 * 1024 * 1024
