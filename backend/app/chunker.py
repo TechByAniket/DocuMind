@@ -1,6 +1,9 @@
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 # =====================================
 # Split text into chunks
 # =====================================
+
 
 def chunk_pages(
     pages: list[dict],
@@ -8,27 +11,25 @@ def chunk_pages(
     overlap: int = 200
 ) -> list[dict]:
 
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=overlap,
+    )
+
     chunks = []
 
     for page in pages:
-        text = page["text"]
-        page_number = page["page_number"]
+        texts = splitter.split_text(page["text"])
 
-        start = 0
-
-        while start < len(text):
-            end = start + chunk_size
-
-            chunk = text[start:end]
-
+        for text in texts:
             chunks.append({
-                "text": chunk,
-                "page_number": page_number
+                "text": text,
+                "page_number": page["page_number"],
             })
 
-            start = end - overlap
-
     return chunks
+
+
 
 
 

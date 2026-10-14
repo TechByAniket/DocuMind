@@ -52,7 +52,7 @@ def answer_question(
 
     print("Retrieved chunks:", len(results))
     print("Context length:", len(context))
-    print("Context preview:", context[:200].encode("ascii", errors="replace").decode("ascii"))
+    # print("Context preview:", context[:200].encode("ascii", errors="replace").decode("ascii"))
 
     prompt = f"""
     You are a document question-answering assistant.
@@ -72,6 +72,9 @@ def answer_question(
     """
 
     answer = generate_answer(prompt)
+
+    if "I couldn't find the answer in the provided document." in answer:
+        sources = []
 
     return {
         "answer": answer,
