@@ -71,12 +71,26 @@ export async function streamQuestion(
       if (done) break;
       const chunk = decoder.decode(value, { stream: true });
       rawText += chunk;
-      onChunk(chunk);
+
+      const sentinelIndex = rawText.indexOf(SOURCES_SENTINEL);
+      if (sentinelIndex !== -1) {
+        break;
+      }
+
+      const tokens = chunk.match(/\s*\S+|\s+/g) || [chunk];
+      for (const token of tokens) {
+        onChunk(token);
+        if (tokens.length > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 15));
+        }
+      }
     }
     const remaining = decoder.decode();
     if (remaining) {
       rawText += remaining;
-      onChunk(remaining);
+      if (!rawText.includes(SOURCES_SENTINEL)) {
+        onChunk(remaining);
+      }
     }
   } finally {
     reader.releaseLock();

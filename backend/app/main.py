@@ -93,7 +93,7 @@ def chat_stream(
         current_user["id"],
     )
 
-    async def stream_with_sources():
+    def stream_with_sources():
         collected_chunks = []
         for chunk in answer_stream:
             collected_chunks.append(chunk)
@@ -114,6 +114,11 @@ def chat_stream(
     return StreamingResponse(
         stream_with_sources(),
         media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
