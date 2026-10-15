@@ -115,20 +115,15 @@ export default function DocumentCard({ document, onChatClick }: DocumentCardProp
         type="button"
         onClick={() => onChatClick(document)}
         disabled={!isReady}
-        className="w-full flex items-center justify-center gap-2 py-2 rounded-[10px]
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[10px]
                    text-[13px] font-medium transition-all duration-150 cursor-pointer
                    disabled:opacity-40 disabled:cursor-not-allowed
                    bg-[#635BFF] text-white hover:bg-[#4F48D9] active:scale-[0.98] active:bg-[#4340C0]
                    shadow-[0_1px_3px_rgba(99,91,255,0.3)] hover:shadow-[0_3px_8px_rgba(99,91,255,0.4)]"
         aria-label={isReady ? `Chat with ${document.filename}` : `${document.filename} is not ready yet`}
       >
-        <MessageCircle size={14} aria-hidden="true" />
-        {isReady ? 'Chat with PDF' : isProcessing ? 'Processing…' : 'Unavailable'}
-        {isReady && (
-          <span className="ml-auto opacity-0 group-hover:opacity-100 -translate-x-1 group-hover:translate-x-0 transition-all duration-150" aria-hidden="true">
-            →
-          </span>
-        )}
+        <MessageCircle size={15} aria-hidden="true" />
+        <span>{isReady ? 'Chat with PDF' : isProcessing ? 'Processing…' : 'Unavailable'}</span>
       </button>
     </article>
   );

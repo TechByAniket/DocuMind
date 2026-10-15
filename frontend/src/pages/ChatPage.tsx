@@ -192,76 +192,76 @@ export default function ChatPage({
 
       <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-3 sm:px-6">
         {/* Page Header */}
-        <header className="flex shrink-0 items-center justify-between border-b border-gray-200/80 py-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              className="rounded-xl p-2 transition hover:bg-gray-200/60 active:scale-95 text-[#22233A] cursor-pointer"
-              aria-label="Back to documents"
-              title="Back to library"
-            >
-              <ArrowLeft size={19} />
-            </button>
+        <header className="flex shrink-0 items-center gap-2.5 sm:gap-3 border-b border-gray-200/80 py-2.5 sm:py-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="shrink-0 rounded-xl p-2 transition hover:bg-gray-200/60 active:scale-95 text-[#22233A] cursor-pointer"
+            aria-label="Back to documents"
+            title="Back to library"
+          >
+            <ArrowLeft size={19} />
+          </button>
 
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#635BFF]/10 text-[#635BFF]">
-              <FileText size={18} />
-            </div>
-
-            <div className="min-w-0">
-              <h1 className="truncate text-sm font-semibold sm:text-base text-[#22233A]">
-                {document.filename}
-              </h1>
-
-              <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                <span>
-                  {document.page_count != null
-                    ? `${document.page_count} pages`
-                    : 'PDF document'}
-                </span>
-                {document.status && (
-                  <>
-                    <span>·</span>
-                    <span className="capitalize">{document.status}</span>
-                  </>
-                )}
-              </p>
-            </div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#635BFF]/10 text-[#635BFF]">
+            <FileText size={18} />
           </div>
 
-          {/* Mobile view toggle (PDF vs Chat) */}
-          <div className="flex items-center gap-1 rounded-xl bg-gray-200/80 p-1 lg:hidden">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-semibold sm:text-base text-[#22233A]" title={document.filename}>
+              {document.filename}
+            </h1>
+
+            <p className="text-xs text-gray-500 flex items-center gap-1.5 truncate">
+              <span>
+                {document.page_count != null
+                  ? `${document.page_count} pages`
+                  : 'PDF document'}
+              </span>
+              {document.status && (
+                <>
+                  <span>·</span>
+                  <span className="capitalize">{document.status}</span>
+                </>
+              )}
+            </p>
+          </div>
+        </header>
+
+        {/* Mobile View Toggle (PDF vs Chat) — Dedicated row on mobile so it never crowds or overrides the PDF title */}
+        <div className="flex shrink-0 pt-2.5 pb-0.5 lg:hidden">
+          <div className="grid w-full grid-cols-2 rounded-xl bg-gray-200/80 p-1 text-xs font-medium">
             <button
               type="button"
               onClick={() => setMobileTab('pdf')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 py-2 rounded-lg transition-all cursor-pointer ${
                 mobileTab === 'pdf'
-                  ? 'bg-white text-[#22233A] shadow-xs'
+                  ? 'bg-white text-[#22233A] font-semibold shadow-xs'
                   : 'text-gray-600 hover:text-[#22233A]'
               }`}
             >
-              <FileText size={13} />
-              PDF
+              <FileText size={14} />
+              <span>PDF Viewer</span>
             </button>
             <button
               type="button"
               onClick={() => setMobileTab('chat')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 py-2 rounded-lg transition-all cursor-pointer ${
                 mobileTab === 'chat'
-                  ? 'bg-white text-[#22233A] shadow-xs'
+                  ? 'bg-white text-[#22233A] font-semibold shadow-xs'
                   : 'text-gray-600 hover:text-[#22233A]'
               }`}
             >
-              <Sparkles size={13} />
-              Chat
+              <Sparkles size={14} />
+              <span>AI Chat</span>
               {messages.length > 0 && (
-                <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-[#635BFF] text-white text-[10px]">
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#635BFF] text-white text-[10px] font-bold leading-none">
                   {messages.length}
                 </span>
               )}
             </button>
           </div>
-        </header>
+        </div>
 
         {/* PDF viewer + Chat Split / Responsive View */}
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden py-3 sm:py-4 lg:grid-cols-2">
@@ -498,7 +498,7 @@ export default function ChatPage({
                 </button>
               </form>
 
-              <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400 px-1">
+              <div className="mt-2 hidden sm:flex items-center justify-between text-[11px] text-gray-400 px-1">
                 <span>
                   Press <kbd className="px-1 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-600 font-mono text-[10px]">Enter ↵</kbd> to send · <kbd className="px-1 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-600 font-mono text-[10px]">Shift + Enter</kbd> for newline
                 </span>
