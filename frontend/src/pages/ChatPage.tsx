@@ -395,7 +395,9 @@ export default function ChatPage({
                         {/* Source page citations — clicking scrolls the PDF and highlights text */}
                         {!isUser &&
                           Array.isArray(message.sources) &&
-                          message.sources.length > 0 && (
+                          message.sources.length > 0 &&
+                          !message.content.toLowerCase().includes("couldn't find the answer in the provided document") &&
+                          !message.content.toLowerCase().includes("could not find the answer in the provided document") && (
                             <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
                               <span className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
                                 <BookOpen size={12} /> Sources:

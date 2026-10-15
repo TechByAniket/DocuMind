@@ -12,7 +12,15 @@ export async function askQuestion(
     document_id: documentId,
   });
 
-  return response.data;
+  const data = response.data;
+  const lowerAnswer = (data.answer || '').toLowerCase();
+  if (
+    lowerAnswer.includes("couldn't find the answer in the provided document") ||
+    lowerAnswer.includes("could not find the answer in the provided document")
+  ) {
+    data.sources = [];
+  }
+  return data;
 }
 
 const SOURCES_SENTINEL = '\n\n__SOURCES__:';
@@ -84,9 +92,16 @@ export async function streamQuestion(
     // A negative-length string replaces the full accumulated content.
     onChunk('\x00REPLACE\x00' + answerText);
     try {
-      sources = JSON.parse(
+      const parsedSources = JSON.parse(
         rawText.slice(sentinelIndex + SOURCES_SENTINEL.length)
       ) as Source[];
+      const lowerAnswer = answerText.toLowerCase();
+      if (
+        !lowerAnswer.includes("couldn't find the answer in the provided document") &&
+        !lowerAnswer.includes("could not find the answer in the provided document")
+      ) {
+        sources = parsedSources;
+      }
     } catch {
       // Malformed trailer — no sources
     }

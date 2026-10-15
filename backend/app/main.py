@@ -94,12 +94,22 @@ def chat_stream(
     )
 
     async def stream_with_sources():
+        collected_chunks = []
         for chunk in answer_stream:
+            collected_chunks.append(chunk)
             yield chunk
         # Append structured source metadata as a sentinel trailer.
         # The frontend splits on this marker to extract sources without
         # polluting the visible answer text.
-        yield f"\n\n__SOURCES__:{json.dumps(sources)}"
+        accumulated_text = "".join(collected_chunks).lower()
+        if (
+            "couldn't find the answer in the provided document" in accumulated_text
+            or "could not find the answer in the provided document" in accumulated_text
+        ):
+            final_sources = []
+        else:
+            final_sources = sources
+        yield f"\n\n__SOURCES__:{json.dumps(final_sources)}"
 
     return StreamingResponse(
         stream_with_sources(),

@@ -91,7 +91,11 @@ def answer_question(
 
     answer = generate_answer(prompt)
 
-    if "I couldn't find the answer in the provided document." in answer:
+    answer_lower = answer.lower()
+    if (
+        "couldn't find the answer in the provided document" in answer_lower
+        or "could not find the answer in the provided document" in answer_lower
+    ):
         sources = []
 
     return {
