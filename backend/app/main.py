@@ -25,7 +25,7 @@ app = FastAPI(title="DocuMind")
 # During development, we allow the Vite dev server origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "https://documind-zirm.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],   # GET, POST, PUT, DELETE, OPTIONS, etc.
     allow_headers=["*"],   # Authorization, Content-Type, etc.
